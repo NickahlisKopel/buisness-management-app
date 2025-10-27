@@ -17,7 +17,7 @@ async function addInviteCodesToOrganizations() {
   const organizations = await prisma.organization.findMany({
     where: {
       inviteCode: null
-    }
+    } as any
   })
 
   console.log(`Found ${organizations.length} organizations without invite codes`)
@@ -30,13 +30,13 @@ async function addInviteCodesToOrganizations() {
     while (!isUnique) {
       inviteCode = generateInviteCode()
       const existing = await prisma.organization.findUnique({
-        where: { inviteCode }
+        where: { inviteCode } as any
       })
       if (!existing) {
         isUnique = true
         await prisma.organization.update({
           where: { id: org.id },
-          data: { inviteCode }
+          data: { inviteCode } as any
         })
         console.log(`✓ Added invite code ${inviteCode} to organization: ${org.name}`)
       }

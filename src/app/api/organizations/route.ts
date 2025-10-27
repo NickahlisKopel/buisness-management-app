@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
 
     while (!isUnique && attempts < maxAttempts) {
       const existing = await prisma.organization.findUnique({
-        where: { inviteCode },
+        where: { inviteCode } as any,
       })
       if (!existing) {
         isUnique = true
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
         state: state || null,
         zipCode: zipCode || null,
         isActive: isActive !== undefined ? isActive : true,
-      },
+      } as any,
     })
 
     return NextResponse.json(organization, { status: 201 })
