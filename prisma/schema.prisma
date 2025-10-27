@@ -1,0 +1,279 @@
+// Business Management App Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// Organizations/Businesses
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  inviteCode  String?  @unique
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  state       String?
+  zipCode     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users       User[]
+  funeralHomes FuneralHome[]
+  suppliers   Supplier[]
+  products    FuneralProduct[]
+  orders      Order[]
+
+  @@map("organizations")
+}
+
+// User authentication
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String?
+  password       String?
+  role           UserRole @default(USER)
+  organizationId String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // NextAuth.js compatibility
+  accounts Account[]
+  sessions Session[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken  String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  USER
+}
+
+// Funeral Home management
+model FuneralHome {
+  id             String   @id @default(cuid())
+  name           String
+  address        String
+  city           String
+  state          String
+  zipCode        String
+  phone          String?
+  email          String?
+  director       String?  // Funeral director name
+  capacity       Int?     // Chapel capacity
+  organizationId String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ceremonies     Ceremony[]
+  orders         Order[]
+
+  @@map("funeral_homes")
+}
+
+// Funeral Service Products
+model FuneralProduct {
+  id             String   @id @default(cuid())
+  name           String
+  sku             String
+  description     String?
+  category        String   // Flowers, Caskets, Urns, Services, etc.
+  price           Float
+  cost            Float
+  inventory       Int      @default(0)
+  minStock        Int      @default(0)
+  organizationId  String
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orderItems      OrderItem[]
+  supplierProducts SupplierProduct[]
+
+  @@unique([sku, organizationId])
+  @@map("funeral_products")
+}
+
+// Ceremony Management
+model Ceremony {
+  id          String      @id @default(cuid())
+  ceremonyNumber String    @unique
+  funeralHomeId String
+  deceasedName String
+  familyContact String
+  ceremonyDate DateTime
+  ceremonyType String     // Funeral, Memorial, Graveside, etc.
+  status      CeremonyStatus @default(PLANNING)
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  funeralHome FuneralHome @relation(fields: [funeralHomeId], references: [id], onDelete: Cascade)
+  orders      Order[]
+
+  @@map("ceremonies")
+}
+
+enum CeremonyStatus {
+  PLANNING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// Funeral Service Suppliers (Florists, Caterers, etc.)
+model Supplier {
+  id             String   @id @default(cuid())
+  name           String
+  email          String
+  phone          String?
+  address        String?
+  city           String?
+  state          String?
+  zipCode        String?
+  contactPerson  String?
+  supplierType   String  // Florist, Caterer, Musician, etc.
+  specialties    String?  // Special services offered
+  notes          String?
+  organizationId String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orders         Order[]
+  supplierProducts SupplierProduct[]
+
+  @@map("suppliers")
+}
+
+// Supplier-Product relationships
+model SupplierProduct {
+  id          String   @id @default(cuid())
+  supplierId  String
+  productId   String
+  supplierSku String?
+  price       Float
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  product     FuneralProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([supplierId, productId])
+  @@map("supplier_products")
+}
+
+// Funeral Service Orders
+model Order {
+  id             String      @id @default(cuid())
+  orderNumber    String
+  funeralHomeId  String
+  ceremonyId     String?
+  supplierId     String
+  organizationId String
+  status         OrderStatus  @default(DRAFT)
+  total          Float        @default(0)
+  notes          String?
+  emailSent      Boolean      @default(false)
+  emailSentAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  funeralHome    FuneralHome  @relation(fields: [funeralHomeId], references: [id], onDelete: Cascade)
+  ceremony       Ceremony?    @relation(fields: [ceremonyId], references: [id], onDelete: SetNull)
+  supplier       Supplier     @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  orderItems     OrderItem[]
+
+  @@unique([orderNumber, organizationId])
+  @@map("orders")
+}
+
+enum OrderStatus {
+  DRAFT
+  SENT
+  CONFIRMED
+  RECEIVED
+  CANCELLED
+}
+
+// Funeral Service Order items
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  unitPrice Float
+  total     Float
+  specialInstructions String? // Special delivery instructions for flowers
+
+  // Relations
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   FuneralProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("order_items")
+}
