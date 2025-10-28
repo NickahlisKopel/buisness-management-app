@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
+import { checkRateLimit, getRateLimitIdentifier, rateLimitConfigs } from "@/lib/rate-limit"
 
 function generateInviteCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -13,6 +14,28 @@ function generateInviteCode(): string {
 
 export async function POST(request: NextRequest) {
   try {
+    // Apply rate limiting - 5 requests per 15 minutes for auth endpoints
+    const identifier = getRateLimitIdentifier(request)
+    const rateLimitResult = checkRateLimit(identifier, rateLimitConfigs.auth)
+    
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { 
+          error: "Too many registration attempts. Please try again later.",
+          retryAfter: Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000)
+        },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000).toString(),
+            'X-RateLimit-Limit': rateLimitConfigs.auth.maxRequests.toString(),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': new Date(rateLimitResult.resetAt).toISOString()
+          }
+        }
+      )
+    }
+
     const { name, email, password, accountType, organizationName, inviteCode } = await request.json()
 
     // Validate input

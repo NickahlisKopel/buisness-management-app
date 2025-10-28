@@ -31,6 +31,8 @@ model Organization {
   suppliers   Supplier[]
   products    FuneralProduct[]
   orders      Order[]
+  emailSettings EmailSettings?
+  emailTemplates EmailTemplate[]
 
   @@map("organizations")
 }
@@ -277,4 +279,46 @@ model OrderItem {
   product   FuneralProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@map("order_items")
+}
+
+// Per-organization SMTP/Email settings
+model EmailSettings {
+  id              String   @id @default(cuid())
+  organizationId  String   @unique
+  host            String
+  port            Int
+  user            String
+  password        String
+  fromAddress     String
+  secure          Boolean  @default(false)
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("email_settings")
+}
+
+// Email templates for different order types
+model EmailTemplate {
+  id              String   @id @default(cuid())
+  organizationId  String
+  name            String
+  type            EmailTemplateType @default(CUSTOM)
+  subject         String
+  htmlContent     String   @db.Text
+  textContent     String?  @db.Text
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, type])
+  @@map("email_templates")
+}
+
+enum EmailTemplateType {
+  STANDARD
+  URGENT
+  CUSTOM
 }

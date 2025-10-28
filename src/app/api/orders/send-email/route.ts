@@ -3,9 +3,32 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { sendOrderEmail, sendOrderConfirmationEmail } from "@/lib/email"
+import { checkRateLimit, getRateLimitIdentifier, rateLimitConfigs } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
   try {
+    // Apply API rate limiting for email sending
+    const identifier = getRateLimitIdentifier(request)
+    const rateLimitResult = checkRateLimit(identifier, rateLimitConfigs.api)
+    
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { 
+          error: "Too many requests. Please try again later.",
+          retryAfter: Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000)
+        },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000).toString(),
+            'X-RateLimit-Limit': rateLimitConfigs.api.maxRequests.toString(),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': new Date(rateLimitResult.resetAt).toISOString()
+          }
+        }
+      )
+    }
+
     // Check authentication
     const session = await getServerSession(authOptions)
     if (!session) {

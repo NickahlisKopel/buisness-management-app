@@ -14,7 +14,8 @@ import {
   LogOut,
   User,
   Building2,
-  Calendar
+  Calendar,
+  Settings as SettingsIcon
 } from "lucide-react"
 import { useState } from "react"
 
@@ -29,6 +30,7 @@ const navigation = [
 
 const adminNavigation = [
   { name: "Organizations", href: "/organizations", icon: Building2 },
+  { name: "Settings", href: "/settings/email", icon: SettingsIcon },
 ]
 
 export function Header() {
