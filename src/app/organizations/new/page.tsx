@@ -13,6 +13,7 @@ export default function NewOrganizationPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [fieldErrors, setFieldErrors] = useState<{ state?: string; zipCode?: string }>({})
 
   const [formData, setFormData] = useState({
     name: "",
@@ -29,7 +30,7 @@ export default function NewOrganizationPage() {
     const { name, value, type } = e.target
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
+      [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : (name === 'state' ? value.toUpperCase() : value),
     }))
   }
 
@@ -59,6 +60,12 @@ export default function NewOrganizationPage() {
     e.preventDefault()
     setLoading(true)
     setError("")
+    // Optional fields: validate if provided
+    const errs: { state?: string; zipCode?: string } = {}
+    if (formData.state && !/^[A-Z]{2}$/.test(formData.state.trim())) errs.state = 'Use 2-letter state code (e.g., CA)'
+    if (formData.zipCode && !/^\d{5}(?:-\d{4})?$/.test(formData.zipCode.trim())) errs.zipCode = 'Enter ZIP as 12345 or 12345-6789'
+    setFieldErrors(errs)
+    if (Object.keys(errs).length > 0) { setLoading(false); return }
 
     try {
       const response = await fetch("/api/organizations", {
@@ -194,6 +201,7 @@ export default function NewOrganizationPage() {
                     onChange={handleAddressChange}
                     placeholder="Start typing an address..."
                     className="w-full"
+                    showMapPreview
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     Start typing to see address suggestions
@@ -227,6 +235,9 @@ export default function NewOrganizationPage() {
                     placeholder="State"
                     maxLength={2}
                   />
+                  {fieldErrors.state && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.state}</p>
+                  )}
                 </div>
 
                 <div>
@@ -242,6 +253,9 @@ export default function NewOrganizationPage() {
                     placeholder="12345"
                     maxLength={10}
                   />
+                  {fieldErrors.zipCode && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.zipCode}</p>
+                  )}
                 </div>
               </div>
             </div>

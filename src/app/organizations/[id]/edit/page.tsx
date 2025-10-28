@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete"
 import { ArrowLeft, Building2, Save } from "lucide-react"
 import Link from "next/link"
 
@@ -26,6 +27,7 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
   const [error, setError] = useState("")
+  const [fieldErrors, setFieldErrors] = useState<{ state?: string; zipCode?: string }>({})
 
   const [formData, setFormData] = useState({
     name: "",
@@ -72,7 +74,7 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
     const { name, value, type } = e.target
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
+      [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : (name === 'state' ? value.toUpperCase() : value),
     }))
   }
 
@@ -80,6 +82,11 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
     e.preventDefault()
     setLoading(true)
     setError("")
+    const errs: { state?: string; zipCode?: string } = {}
+    if (formData.state && !/^[A-Z]{2}$/.test(formData.state.trim())) errs.state = 'Use 2-letter state code (e.g., CA)'
+    if (formData.zipCode && !/^\d{5}(?:-\d{4})?$/.test(formData.zipCode.trim())) errs.zipCode = 'Enter ZIP as 12345 or 12345-6789'
+    setFieldErrors(errs)
+    if (Object.keys(errs).length > 0) { setLoading(false); return }
 
     try {
       const response = await fetch(`/api/organizations/${resolvedParams.id}`, {
@@ -101,6 +108,25 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
       setLoading(false)
+    }
+  }
+
+  const handleAddressChange = (value: string, details?: {
+    address: string
+    city: string
+    state: string
+    zipCode: string
+  }) => {
+    if (details) {
+      setFormData((prev) => ({
+        ...prev,
+        address: details.address,
+        city: details.city,
+        state: details.state,
+        zipCode: details.zipCode,
+      }))
+    } else {
+      setFormData((prev) => ({ ...prev, address: value }))
     }
   }
 
@@ -213,13 +239,13 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
                   <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
                     Street Address
                   </label>
-                  <Input
+                  <AddressAutocomplete
                     id="address"
                     name="address"
-                    type="text"
                     value={formData.address}
-                    onChange={handleChange}
-                    placeholder="1234 Main Street"
+                    onChange={handleAddressChange}
+                    placeholder="Start typing an address..."
+                    showMapPreview
                   />
                 </div>
 
@@ -250,6 +276,9 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
                     placeholder="State"
                     maxLength={2}
                   />
+                  {fieldErrors.state && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.state}</p>
+                  )}
                 </div>
 
                 <div>
@@ -265,6 +294,9 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
                     placeholder="12345"
                     maxLength={10}
                   />
+                  {fieldErrors.zipCode && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.zipCode}</p>
+                  )}
                 </div>
               </div>
             </div>

@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete"
 
 interface Supplier {
   id: string
@@ -38,14 +39,26 @@ export function EditSupplierForm({ initial }: { initial: Supplier }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<{ state?: string; zipCode?: string }>({})
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setForm((f) => ({ ...f, [name]: value }))
+    setForm((f) => ({ ...f, [name]: name === 'state' ? value.toUpperCase() : value }))
+  }
+
+  const validate = () => {
+    const errs: { state?: string; zipCode?: string } = {}
+    const state = (form.state || '').trim()
+    const zip = (form.zipCode || '').trim()
+    if (state && !/^[A-Z]{2}$/.test(state)) errs.state = 'Use 2-letter state code (e.g., CA)'
+    if (zip && !/^\d{5}(?:-\d{4})?$/.test(zip)) errs.zipCode = 'Enter ZIP as 12345 or 12345-6789'
+    setFieldErrors(errs)
+    return Object.keys(errs).length === 0
   }
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!validate()) return
     setSaving(true)
     setError(null)
     setSuccess(null)
@@ -62,6 +75,25 @@ export function EditSupplierForm({ initial }: { initial: Supplier }) {
       setError(err.message || 'Failed to update supplier')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleAddressChange = (value: string, details?: {
+    address: string
+    city: string
+    state: string
+    zipCode: string
+  }) => {
+    if (details) {
+      setForm((f) => ({
+        ...f,
+        address: details.address,
+        city: details.city,
+        state: details.state,
+        zipCode: details.zipCode,
+      }))
+    } else {
+      setForm((f) => ({ ...f, address: value }))
     }
   }
 
@@ -94,7 +126,14 @@ export function EditSupplierForm({ initial }: { initial: Supplier }) {
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
-        <Input name="address" value={form.address} onChange={onChange} />
+        <AddressAutocomplete
+          id="address"
+          name="address"
+          value={form.address}
+          onChange={handleAddressChange}
+          placeholder="Start typing an address..."
+          showMapPreview
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -105,10 +144,12 @@ export function EditSupplierForm({ initial }: { initial: Supplier }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
           <Input name="state" value={form.state} onChange={onChange} />
+          {fieldErrors.state && <p className="mt-1 text-sm text-red-600">{fieldErrors.state}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Zip Code</label>
           <Input name="zipCode" value={form.zipCode} onChange={onChange} />
+          {fieldErrors.zipCode && <p className="mt-1 text-sm text-red-600">{fieldErrors.zipCode}</p>}
         </div>
       </div>
 

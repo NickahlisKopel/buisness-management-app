@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete"
 import { ArrowLeft, Save, X } from "lucide-react"
 import Link from "next/link"
 
@@ -12,6 +13,7 @@ export default function NewSupplierPage() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
+  const [fieldErrors, setFieldErrors] = useState<{ state?: string; zipCode?: string }>({})
 
   const [formData, setFormData] = useState({
     name: "",
@@ -31,12 +33,28 @@ export default function NewSupplierPage() {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: name === 'state' ? value.toUpperCase() : value
     }))
+  }
+
+  const validate = () => {
+    const errs: { state?: string; zipCode?: string } = {}
+    const state = formData.state?.trim()
+    const zip = formData.zipCode?.trim()
+    // Optional but if provided must be valid
+    if (state && !/^[A-Z]{2}$/.test(state)) {
+      errs.state = 'Use 2-letter state code (e.g., CA)'
+    }
+    if (zip && !/^\d{5}(?:-\d{4})?$/.test(zip)) {
+      errs.zipCode = 'Enter ZIP as 12345 or 12345-6789'
+    }
+    setFieldErrors(errs)
+    return Object.keys(errs).length === 0
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!validate()) return
     setIsSubmitting(true)
     setError("")
 
@@ -60,6 +78,25 @@ export default function NewSupplierPage() {
       setError(err instanceof Error ? err.message : "An error occurred")
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleAddressChange = (value: string, details?: {
+    address: string
+    city: string
+    state: string
+    zipCode: string
+  }) => {
+    if (details) {
+      setFormData(prev => ({
+        ...prev,
+        address: details.address,
+        city: details.city,
+        state: details.state,
+        zipCode: details.zipCode,
+      }))
+    } else {
+      setFormData(prev => ({ ...prev, address: value }))
     }
   }
 
@@ -163,13 +200,13 @@ export default function NewSupplierPage() {
                   <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
                     Street Address
                   </label>
-                  <Input
+                  <AddressAutocomplete
                     id="address"
                     name="address"
-                    type="text"
                     value={formData.address}
-                    onChange={handleInputChange}
-                    placeholder="Enter street address"
+                    onChange={handleAddressChange}
+                    placeholder="Start typing an address..."
+                    showMapPreview
                   />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -198,6 +235,9 @@ export default function NewSupplierPage() {
                       onChange={handleInputChange}
                       placeholder="Enter state"
                     />
+                    {fieldErrors.state && (
+                      <p className="mt-1 text-sm text-red-600">{fieldErrors.state}</p>
+                    )}
                   </div>
                   <div>
                     <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700 mb-1">
@@ -211,6 +251,9 @@ export default function NewSupplierPage() {
                       onChange={handleInputChange}
                       placeholder="Enter ZIP code"
                     />
+                    {fieldErrors.zipCode && (
+                      <p className="mt-1 text-sm text-red-600">{fieldErrors.zipCode}</p>
+                    )}
                   </div>
                 </div>
               </div>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { isValidStateCode, isValidZipCode, normalizeStateCode } from '@/lib/utils'
 
 export async function GET(
   request: NextRequest,
@@ -82,6 +83,13 @@ export async function PUT(
       )
     }
 
+    if (!isValidStateCode(state)) {
+      return NextResponse.json({ error: 'State must be 2-letter code (e.g., CA)' }, { status: 400 })
+    }
+    if (!isValidZipCode(zipCode)) {
+      return NextResponse.json({ error: 'ZIP must be 12345 or 12345-6789' }, { status: 400 })
+    }
+
     // Update the funeral home
     const funeralHome = await prisma.funeralHome.update({
       where: { id },
@@ -89,7 +97,7 @@ export async function PUT(
         name,
         address,
         city,
-        state,
+  state: normalizeStateCode(state)!,
         zipCode,
         phone: phone || null,
         email: email || null,

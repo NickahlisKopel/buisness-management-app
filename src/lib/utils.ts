@@ -39,3 +39,23 @@ export function validatePhone(phone: string): boolean {
   const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/
   return phoneRegex.test(phone.replace(/[\s\-\(\)]/g, ''))
 }
+
+// Address helpers
+export function normalizeStateCode(state: string | null | undefined): string | null {
+  if (!state) return null
+  const s = state.trim()
+  if (!s) return null
+  return s.toUpperCase()
+}
+
+export function isValidStateCode(state: string | null | undefined): boolean {
+  if (!state) return false
+  const s = state.trim().toUpperCase()
+  return /^[A-Z]{2}$/.test(s)
+}
+
+export function isValidZipCode(zip: string | null | undefined): boolean {
+  if (!zip) return false
+  const z = String(zip).trim()
+  return /^\d{5}(?:-\d{4})?$/.test(z)
+}

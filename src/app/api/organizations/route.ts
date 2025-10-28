@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { isValidStateCode, isValidZipCode, normalizeStateCode } from '@/lib/utils'
 
 // Generate a random 8-character alphanumeric invite code
 function generateInviteCode(): string {
@@ -104,6 +105,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Optional address validation
+    if (state && !isValidStateCode(state)) {
+      return NextResponse.json({ error: 'State must be 2-letter code (e.g., CA)' }, { status: 400 })
+    }
+    if (zipCode && !isValidZipCode(zipCode)) {
+      return NextResponse.json({ error: 'ZIP must be 12345 or 12345-6789' }, { status: 400 })
+    }
+
     // Create the organization
     const organization = await prisma.organization.create({
       data: {
@@ -113,7 +122,7 @@ export async function POST(request: NextRequest) {
         phone: phone || null,
         address: address || null,
         city: city || null,
-        state: state || null,
+        state: state ? normalizeStateCode(state) : null,
         zipCode: zipCode || null,
         isActive: isActive !== undefined ? isActive : true,
       } as any,

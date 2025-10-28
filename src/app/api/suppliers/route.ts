@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { isValidStateCode, isValidZipCode, normalizeStateCode } from "@/lib/utils"
 
 export async function GET() {
   try {
@@ -82,6 +83,13 @@ export async function POST(request: Request) {
       )
     }
 
+    // Optional address validation if provided
+    if (state && !isValidStateCode(state)) {
+      return NextResponse.json({ error: "State must be 2-letter code (e.g., CA)" }, { status: 400 })
+    }
+    if (zipCode && !isValidZipCode(zipCode)) {
+      return NextResponse.json({ error: "ZIP must be 12345 or 12345-6789" }, { status: 400 })
+    }
     const supplier = await prisma.supplier.create({
       data: {
         name,
@@ -89,7 +97,7 @@ export async function POST(request: Request) {
         phone,
         address,
         city,
-        state,
+        state: state ? normalizeStateCode(state)! : null,
         zipCode,
         contactPerson,
         supplierType,

@@ -11,6 +11,8 @@ interface AddressSuggestion {
   city?: string
   state?: string
   zipCode?: string
+  lat?: number
+  lng?: number
 }
 
 interface AddressAutocompleteProps {
@@ -20,6 +22,8 @@ interface AddressAutocompleteProps {
     city: string
     state: string
     zipCode: string
+    lat?: number
+    lng?: number
   }) => void
   onBlur?: () => void
   placeholder?: string
@@ -27,6 +31,7 @@ interface AddressAutocompleteProps {
   required?: boolean
   id?: string
   name?: string
+  showMapPreview?: boolean
 }
 
 export function AddressAutocomplete({
@@ -37,7 +42,8 @@ export function AddressAutocomplete({
   className = "",
   required = false,
   id = "address",
-  name = "address"
+  name = "address",
+  showMapPreview = false
 }: AddressAutocompleteProps) {
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -54,6 +60,34 @@ export function AddressAutocomplete({
   const lastFallbackAtRef = useRef<number>(0)
   const cacheRef = useRef<Map<string, { ts: number; items: AddressSuggestion[] }>>(new Map())
   const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+  const [selectedDetails, setSelectedDetails] = useState<{
+    address: string
+    city: string
+    state: string
+    zipCode: string
+    lat?: number
+    lng?: number
+  } | null>(null)
+
+  // US State normalization
+  const STATE_ABBR: Record<string, string> = {
+    'ALABAMA': 'AL', 'ALASKA': 'AK', 'ARIZONA': 'AZ', 'ARKANSAS': 'AR', 'CALIFORNIA': 'CA', 'COLORADO': 'CO', 'CONNECTICUT': 'CT', 'DELAWARE': 'DE', 'FLORIDA': 'FL', 'GEORGIA': 'GA', 'HAWAII': 'HI', 'IDAHO': 'ID', 'ILLINOIS': 'IL', 'INDIANA': 'IN', 'IOWA': 'IA', 'KANSAS': 'KS', 'KENTUCKY': 'KY', 'LOUISIANA': 'LA', 'MAINE': 'ME', 'MARYLAND': 'MD', 'MASSACHUSETTS': 'MA', 'MICHIGAN': 'MI', 'MINNESOTA': 'MN', 'MISSISSIPPI': 'MS', 'MISSOURI': 'MO', 'MONTANA': 'MT', 'NEBRASKA': 'NE', 'NEVADA': 'NV', 'NEW HAMPSHIRE': 'NH', 'NEW JERSEY': 'NJ', 'NEW MEXICO': 'NM', 'NEW YORK': 'NY', 'NORTH CAROLINA': 'NC', 'NORTH DAKOTA': 'ND', 'OHIO': 'OH', 'OKLAHOMA': 'OK', 'OREGON': 'OR', 'PENNSYLVANIA': 'PA', 'RHODE ISLAND': 'RI', 'SOUTH CAROLINA': 'SC', 'SOUTH DAKOTA': 'SD', 'TENNESSEE': 'TN', 'TEXAS': 'TX', 'UTAH': 'UT', 'VERMONT': 'VT', 'VIRGINIA': 'VA', 'WASHINGTON': 'WA', 'WEST VIRGINIA': 'WV', 'WISCONSIN': 'WI', 'WYOMING': 'WY', 'DISTRICT OF COLUMBIA': 'DC', 'WASHINGTON DC': 'DC', 'WASHINGTON, DC': 'DC'
+  }
+
+  const normalizeState = (s: string | undefined): string => {
+    if (!s) return ''
+    const trimmed = s.trim()
+    if (trimmed.length === 2) return trimmed.toUpperCase()
+    const upper = trimmed.toUpperCase()
+    return STATE_ABBR[upper] || trimmed
+  }
+
+  const normalizeZip = (z: string | undefined): string => {
+    if (!z) return ''
+    const zip = String(z).trim()
+    const m = zip.match(/^\d{5}(?:-\d{4})?$/)
+    return m ? zip : zip
+  }
 
   // Load Google Maps API if API key is available
   useEffect(() => {
@@ -172,8 +206,10 @@ export function AddressAutocomplete({
           description: item.display_name,
           address: item.address?.road || item.address?.hamlet || "",
           city: item.address?.city || item.address?.town || item.address?.village || "",
-          state: item.address?.state || "",
-          zipCode: item.address?.postcode || ""
+          state: normalizeState(item.address?.state || ""),
+          zipCode: normalizeZip(item.address?.postcode || ""),
+          lat: item.lat ? parseFloat(item.lat) : undefined,
+          lng: item.lon ? parseFloat(item.lon) : undefined,
         }))
         setSuggestions(items)
         setShowSuggestions(true)
@@ -224,7 +260,7 @@ export function AddressAutocomplete({
     placesService.current.getDetails(
       {
         placeId,
-        fields: ['address_components', 'formatted_address']
+        fields: ['address_components', 'formatted_address', 'geometry']
       },
       (place: any, status: any) => {
         if (status === (window as any).google.maps.places.PlacesServiceStatus.OK && place) {
@@ -235,6 +271,8 @@ export function AddressAutocomplete({
           let city = ''
           let state = ''
           let zipCode = ''
+          let lat: number | undefined
+          let lng: number | undefined
 
           addressComponents.forEach((component: any) => {
             const types = component.types
@@ -251,14 +289,26 @@ export function AddressAutocomplete({
             }
           })
 
+          if (place.geometry?.location) {
+            try {
+              lat = typeof place.geometry.location.lat === 'function' ? place.geometry.location.lat() : place.geometry.location.lat
+              lng = typeof place.geometry.location.lng === 'function' ? place.geometry.location.lng() : place.geometry.location.lng
+            } catch {}
+          }
+
           const address = `${streetNumber} ${route}`.trim()
 
-          onChange(address, {
+          const details = {
             address,
             city,
             state,
-            zipCode
-          })
+            zipCode,
+            lat,
+            lng
+          }
+
+          onChange(address, details)
+          setSelectedDetails(details)
         }
       }
     )
@@ -270,15 +320,20 @@ export function AddressAutocomplete({
       getGooglePlaceDetails(suggestion.placeId)
     } else if (suggestion.address) {
       // Fallback API - use what we have
-      onChange(suggestion.address, {
+      const details = {
         address: suggestion.address,
         city: suggestion.city || '',
-        state: suggestion.state || '',
-        zipCode: suggestion.zipCode || ''
-      })
+        state: normalizeState(suggestion.state || ''),
+        zipCode: normalizeZip(suggestion.zipCode || ''),
+        lat: suggestion.lat,
+        lng: suggestion.lng
+      }
+      onChange(suggestion.address, details)
+      setSelectedDetails(details)
     } else {
       // Just use the description
       onChange(suggestion.description)
+      setSelectedDetails(null)
     }
     
     setShowSuggestions(false)
@@ -308,6 +363,18 @@ export function AddressAutocomplete({
     setTimeout(() => {
       setShowSuggestions(false)
       setSuggestions([])
+      // Ensure normalization if we have details
+      if (selectedDetails) {
+        const normalized = {
+          ...selectedDetails,
+          state: normalizeState(selectedDetails.state),
+          zipCode: normalizeZip(selectedDetails.zipCode)
+        }
+        if (normalized.state !== selectedDetails.state || normalized.zipCode !== selectedDetails.zipCode) {
+          onChange(normalized.address, normalized)
+          setSelectedDetails(normalized)
+        }
+      }
       onBlur?.()
     }, 200)
   }
@@ -361,6 +428,28 @@ export function AddressAutocomplete({
           <p className="text-sm text-gray-500">
             No suggestions found. Try entering more details.
           </p>
+        </div>
+      )}
+
+      {showMapPreview && selectedDetails?.lat !== undefined && selectedDetails?.lng !== undefined && (
+        <div className="mt-2 border rounded overflow-hidden">
+          <iframe
+            title="Map preview"
+            width="100%"
+            height="180"
+            loading="lazy"
+            src={`https://www.openstreetmap.org/export/embed.html?bbox=${(selectedDetails.lng - 0.005).toFixed(6)},${(selectedDetails.lat - 0.005).toFixed(6)},${(selectedDetails.lng + 0.005).toFixed(6)},${(selectedDetails.lat + 0.005).toFixed(6)}&layer=mapnik&marker=${selectedDetails.lat.toFixed(6)},${selectedDetails.lng.toFixed(6)}`}
+          />
+          <div className="p-2 text-xs text-gray-600">
+            <a
+              className="underline hover:no-underline"
+              href={`https://www.openstreetmap.org/?mlat=${selectedDetails.lat}&mlon=${selectedDetails.lng}#map=16/${selectedDetails.lat}/${selectedDetails.lng}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              View on map
+            </a>
+          </div>
         </div>
       )}
     </div>
