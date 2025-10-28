@@ -6,6 +6,7 @@ import Link from "next/link"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
+import { LinkSupplier } from "@/components/products/link-supplier"
 
 async function getProducts(organizationId: string) {
   return await prisma.funeralProduct.findMany({
@@ -147,6 +148,8 @@ export default async function ProductsPage() {
                               View
                             </Link>
                           </Button>
+                          {/* Client-side button to link supplier */}
+                          <LinkSupplier product={{ id: product.id, name: product.name, sku: product.sku, price: product.price }} />
                         </div>
                       </td>
                     </tr>

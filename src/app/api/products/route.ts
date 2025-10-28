@@ -58,7 +58,9 @@ export async function POST(request: Request) {
       price, 
       cost, 
       inventory, 
-      minStock 
+      minStock,
+      supplierId,
+      supplierPrice
     } = body
 
     // Validate required fields
@@ -100,6 +102,29 @@ export async function POST(request: Request) {
         organizationId: session.user.organizationId
       }
     })
+
+    // If a supplier is provided, create the supplier-product mapping so products show up when creating orders
+    if (supplierId) {
+      // Verify supplier belongs to the same organization
+      const supplier = await prisma.supplier.findFirst({
+        where: { id: supplierId, organizationId: session.user.organizationId, isActive: true }
+      })
+      if (!supplier) {
+        return NextResponse.json(
+          { error: "Supplier not found or not in your organization" },
+          { status: 400 }
+        )
+      }
+
+      await prisma.supplierProduct.create({
+        data: {
+          supplierId,
+          productId: product.id,
+          supplierSku: sku,
+          price: parseFloat(supplierPrice ?? price)
+        }
+      })
+    }
 
     return NextResponse.json(product, { status: 201 })
   } catch (error) {

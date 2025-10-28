@@ -48,6 +48,12 @@ export function AddressAutocomplete({
   const autocompleteService = useRef<any>(null)
   const placesService = useRef<any>(null)
   const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false)
+  // Track and stabilize async behavior
+  const currentQueryRef = useRef<string>("")
+  const abortRef = useRef<AbortController | null>(null)
+  const lastFallbackAtRef = useRef<number>(0)
+  const cacheRef = useRef<Map<string, { ts: number; items: AddressSuggestion[] }>>(new Map())
+  const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
   // Load Google Maps API if API key is available
   useEffect(() => {
@@ -103,6 +109,8 @@ export function AddressAutocomplete({
       },
       (predictions: any, status: any) => {
         setIsLoading(false)
+        // Ignore stale results
+        if (currentQueryRef.current !== input) return
         if (status === (window as any).google.maps.places.PlacesServiceStatus.OK && predictions) {
           setSuggestions(
             predictions.map((prediction: any) => ({
@@ -121,29 +129,62 @@ export function AddressAutocomplete({
   const fetchFallbackSuggestions = useCallback(async (input: string) => {
     // Simple fallback using Nominatim (OpenStreetMap) - free, no API key needed
     try {
+      // Basic in-memory cache with TTL
+      const cached = cacheRef.current.get(input)
+      const now = Date.now()
+      if (cached && now - cached.ts < CACHE_TTL_MS) {
+        setSuggestions(cached.items)
+        setShowSuggestions(true)
+        return
+      }
+
+      // Throttle fallback provider to ~1 req/sec to respect Nominatim guidelines
+      const since = now - lastFallbackAtRef.current
+      const wait = since < 1000 ? 1000 - since : 0
+      if (wait > 0) {
+        await new Promise((res) => setTimeout(res, wait))
+      }
+
+      // Cancel any in-flight request
+      if (abortRef.current) abortRef.current.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
+      currentQueryRef.current = input
+
       setIsLoading(true)
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(input)}&countrycodes=us&addressdetails=1&limit=5`,
         {
           headers: {
             'Accept': 'application/json',
+            // Provide an explicit referrer to play nice with Nominatim
+            'Referrer-Policy': 'no-referrer-when-downgrade'
           }
+        , signal: controller.signal as any
         }
       )
       
       if (response.ok) {
         const data = await response.json()
-        setSuggestions(
-          data.map((item: any) => ({
-            description: item.display_name,
-            address: item.address?.road || item.address?.hamlet || "",
-            city: item.address?.city || item.address?.town || item.address?.village || "",
-            state: item.address?.state || "",
-            zipCode: item.address?.postcode || ""
-          }))
-        )
+        // Ignore if the query changed or was aborted
+        if (controller.signal.aborted || currentQueryRef.current !== input) return
+        const items: AddressSuggestion[] = data.map((item: any) => ({
+          description: item.display_name,
+          address: item.address?.road || item.address?.hamlet || "",
+          city: item.address?.city || item.address?.town || item.address?.village || "",
+          state: item.address?.state || "",
+          zipCode: item.address?.postcode || ""
+        }))
+        setSuggestions(items)
         setShowSuggestions(true)
+        cacheRef.current.set(input, { ts: Date.now(), items })
+        // Simple LRU trim
+        if (cacheRef.current.size > 100) {
+          const firstKey = cacheRef.current.keys().next().value as string | undefined
+          if (firstKey) cacheRef.current.delete(firstKey)
+        }
       }
+      lastFallbackAtRef.current = Date.now()
     } catch (error) {
       console.error("Error fetching address suggestions:", error)
     } finally {
@@ -164,12 +205,13 @@ export function AddressAutocomplete({
     // Debounce the API call
     if (newValue.length >= 3) {
       debounceRef.current = setTimeout(() => {
+        currentQueryRef.current = newValue
         if (googleMapsLoaded && autocompleteService.current) {
           fetchGoogleSuggestions(newValue)
         } else {
           fetchFallbackSuggestions(newValue)
         }
-      }, 300)
+      }, googleMapsLoaded ? 300 : 600)
     } else {
       setSuggestions([])
       setShowSuggestions(false)
@@ -304,7 +346,8 @@ export function AddressAutocomplete({
               className={`w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-2 transition-colors ${
                 index === selectedIndex ? 'bg-blue-50' : ''
               }`}
-              onClick={() => handleSuggestionClick(suggestion)}
+              // Use onMouseDown to avoid input blur removing the list before click happens
+              onMouseDown={(e) => { e.preventDefault(); handleSuggestionClick(suggestion) }}
             >
               <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
               <span className="text-sm text-gray-900">{suggestion.description}</span>
