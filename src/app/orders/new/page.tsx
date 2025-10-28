@@ -39,6 +39,7 @@ export default function NewOrderPage() {
   const [orderItems, setOrderItems] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isSending, setIsSending] = useState(false)
 
   // Load stores and suppliers
   useEffect(() => {
@@ -97,6 +98,61 @@ export default function NewOrderPage() {
       alert('Error saving order')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleSaveAndSend = async () => {
+    if (!selectedStore || !selectedSupplier) {
+      alert('Please select both store and supplier')
+      return
+    }
+
+    setIsSending(true)
+    try {
+      // 1) Create the order as DRAFT
+      const createRes = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          funeralHomeId: selectedStore,
+          supplierId: selectedSupplier,
+          notes: notes,
+          status: 'DRAFT',
+          orderItems: orderItems
+        }),
+      })
+
+      if (!createRes.ok) {
+        const err = await createRes.json().catch(() => ({} as any))
+        alert(err?.error || 'Failed to create order')
+        return
+      }
+
+      const createdOrder = await createRes.json()
+      const orderId = createdOrder.id as string
+
+      // 2) Send the order email
+      const sendRes = await fetch('/api/orders/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId }),
+      })
+
+      if (!sendRes.ok) {
+        const err = await sendRes.json().catch(() => ({} as any))
+        alert(err?.error || 'Failed to send order email')
+        // Navigate to newly created order so user can retry sending from there
+        router.push(`/orders/${orderId}`)
+        return
+      }
+
+      // Success: go to the order details page
+      router.push(`/orders/${orderId}`)
+    } catch (error) {
+      console.error('Error saving and sending order:', error)
+      alert('Error saving and sending order')
+    } finally {
+      setIsSending(false)
     }
   }
 
@@ -221,21 +277,18 @@ export default function NewOrderPage() {
               <Button
                 variant="outline"
                 onClick={handleSaveDraft}
-                disabled={!selectedStore || !selectedSupplier || isSaving}
+                disabled={!selectedStore || !selectedSupplier || isSaving || isSending}
               >
                 <Save className="h-4 w-4 mr-2" />
                 {isSaving ? 'Saving...' : 'Save Draft'}
               </Button>
               
               <Button
-                onClick={() => {
-                  // Handle save and send
-                  handleSaveDraft()
-                }}
-                disabled={!selectedStore || !selectedSupplier || isSaving}
+                onClick={handleSaveAndSend}
+                disabled={!selectedStore || !selectedSupplier || isSaving || isSending}
               >
                 <Send className="h-4 w-4 mr-2" />
-                Save & Send Email
+                {isSending ? 'Sending...' : 'Save & Send Email'}
               </Button>
             </div>
           </div>
