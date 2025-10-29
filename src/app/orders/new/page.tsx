@@ -164,29 +164,30 @@ export default function NewOrderPage() {
       <div className="min-h-screen bg-gray-50">
         <Header />
         
-        <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
           {/* Header */}
-          <div className="mb-8">
+          <div className="mb-6 sm:mb-8">
             <div className="flex items-center mb-4">
-              <Button variant="outline" asChild>
+              <Button variant="outline" size="sm" asChild className="text-xs sm:text-sm">
                 <Link href="/orders">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Orders
+                  <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Back to Orders</span>
+                  <span className="sm:hidden">Back</span>
                 </Link>
               </Button>
             </div>
             
-            <h1 className="text-3xl font-bold text-gray-900">Create New Order</h1>
-            <p className="mt-2 text-gray-600">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Create New Order</h1>
+            <p className="mt-2 text-sm sm:text-base text-gray-600">
               Use the grid below to add products and quantities to your order
             </p>
           </div>
 
           {/* Order Setup */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Order Details</h2>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-6 sm:mb-8">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Order Details</h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:gap-6">
               {/* Store Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -196,7 +197,7 @@ export default function NewOrderPage() {
                 <select
                   value={selectedStore}
                   onChange={(e) => setSelectedStore(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select a store</option>
                   {stores.map((store) => (
@@ -216,7 +217,7 @@ export default function NewOrderPage() {
                 <select
                   value={selectedSupplier}
                   onChange={(e) => setSelectedSupplier(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select a supplier</option>
                   {suppliers.map((supplier) => (
@@ -229,7 +230,7 @@ export default function NewOrderPage() {
             </div>
 
             {/* Notes */}
-            <div className="mt-6">
+            <div className="mt-4 sm:mt-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Special Instructions
               </label>
@@ -237,7 +238,7 @@ export default function NewOrderPage() {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Add any special instructions for this order..."
               />
             </div>
@@ -245,27 +246,29 @@ export default function NewOrderPage() {
 
           {/* Order Grid */}
           {selectedStore && selectedSupplier && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Order Items</h2>
-                <div className="text-sm text-gray-600">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-6 sm:mb-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900">Order Items</h2>
+                <div className="text-xs sm:text-sm text-gray-600">
                   {selectedStoreData?.name} → {selectedSupplierData?.name}
                 </div>
               </div>
               
-              <OrderGrid 
-                supplierId={selectedSupplier}
-                onOrderChange={(items) => {
-                  console.log('OrderGrid items changed:', items)
-                  setOrderItems(items)
-                }}
-              />
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <OrderGrid 
+                  supplierId={selectedSupplier}
+                  onOrderChange={(items) => {
+                    console.log('OrderGrid items changed:', items)
+                    setOrderItems(items)
+                  }}
+                />
+              </div>
             </div>
           )}
 
           {/* Action Buttons */}
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-gray-600">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <div className="text-xs sm:text-sm text-gray-600 text-center sm:text-left">
               {selectedStore && selectedSupplier ? (
                 <>Ready to create order</>
               ) : (
@@ -273,11 +276,12 @@ export default function NewOrderPage() {
               )}
             </div>
             
-            <div className="flex space-x-3">
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <Button
                 variant="outline"
                 onClick={handleSaveDraft}
                 disabled={!selectedStore || !selectedSupplier || isSaving || isSending}
+                className="w-full sm:w-auto text-sm"
               >
                 <Save className="h-4 w-4 mr-2" />
                 {isSaving ? 'Saving...' : 'Save Draft'}
@@ -286,6 +290,7 @@ export default function NewOrderPage() {
               <Button
                 onClick={handleSaveAndSend}
                 disabled={!selectedStore || !selectedSupplier || isSaving || isSending}
+                className="w-full sm:w-auto text-sm"
               >
                 <Send className="h-4 w-4 mr-2" />
                 {isSending ? 'Sending...' : 'Save & Send Email'}
