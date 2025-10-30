@@ -47,7 +47,10 @@ export async function POST(req: NextRequest) {
     const link = `${baseUrl}/auth/reset-password?token=${rawToken}`
 
     // Send email (use org email settings if present)
-    await sendPasswordResetEmail(user.email, link, user.organizationId)
+    console.log('[Forgot Password] Attempting to send email to:', user.email)
+    console.log('[Forgot Password] Reset link:', link)
+    const emailSent = await sendPasswordResetEmail(user.email, link, user.organizationId)
+    console.log('[Forgot Password] Email sent result:', emailSent)
 
     return NextResponse.json({ ok: true })
   } catch (error) {
