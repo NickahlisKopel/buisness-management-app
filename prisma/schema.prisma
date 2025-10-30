@@ -98,6 +98,20 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
+// Password reset tokens (hashed token storage for security)
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
 enum UserRole {
   ADMIN
   MANAGER

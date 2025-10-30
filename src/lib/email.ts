@@ -330,3 +330,34 @@ export async function sendTestEmail(to: string, organizationId?: string): Promis
     return { ok: false, error: error?.message || 'Unknown error' }
   }
 }
+
+// Send password reset email
+export async function sendPasswordResetEmail(to: string, resetLink: string, organizationId?: string): Promise<boolean> {
+  try {
+    const orgOverrides = await getOrgEmailOverrides(organizationId)
+    const from = orgOverrides?.fromAddress || process.env.EMAIL_FROM || 'noreply@businessmanager.com'
+    const subject = 'Reset your password'
+    const html = `
+      <h2>Password Reset Request</h2>
+      <p>We received a request to reset your password. If you didn't make this request, you can safely ignore this email.</p>
+      <p>To reset your password, click the link below:</p>
+      <p><a href="${resetLink}" target="_blank" rel="noreferrer noopener" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">Reset Password</a></p>
+      <p>Or copy and paste this URL into your browser:</p>
+      <p><a href="${resetLink}" target="_blank" rel="noreferrer noopener">${resetLink}</a></p>
+      <p style="color:#6b7280;font-size:12px;margin-top:16px;">This link will expire in 1 hour.</p>
+    `
+    const text = `Reset your password:\n${resetLink}\n\nIf you didn't request this, ignore this email. Link expires in 1 hour.`
+
+    if (resendClient) {
+      const { error } = await resendClient.emails.send({ from, to, subject, html, text })
+      if (error) throw error
+    } else {
+      const transporter = createTransporter(orgOverrides)
+      await transporter.sendMail({ from, to, subject, text, html })
+    }
+    return true
+  } catch (error) {
+    console.error('Error sending password reset email:', error)
+    return false
+  }
+}
