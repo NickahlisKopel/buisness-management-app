@@ -55,6 +55,7 @@ model User {
   // NextAuth.js compatibility
   accounts Account[]
   sessions Session[]
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
 }
