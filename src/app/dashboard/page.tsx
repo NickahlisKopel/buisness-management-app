@@ -216,7 +216,7 @@ export default async function Dashboard() {
               ⚠️ Low Stock Alert
             </h3>
             <div className="space-y-3">
-              {data.lowStockProducts.map((product, index) => (
+              {data.lowStockProducts.map((product: any, index: number) => (
                 <div key={index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-yellow-50 rounded-lg border border-yellow-200 gap-2">
                   <div>
                     <p className="font-medium text-gray-900 text-sm sm:text-base">{product.name}</p>

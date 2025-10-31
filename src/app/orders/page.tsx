@@ -25,7 +25,9 @@ async function getOrders(organizationId: string) {
   })
 }
 
-const statusColors = {
+type OrderWithIncludes = Awaited<ReturnType<typeof getOrders>>[0];
+
+const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-800',
   SENT: 'bg-blue-100 text-blue-800',
   CONFIRMED: 'bg-yellow-100 text-yellow-800',
@@ -109,7 +111,7 @@ export default async function OrdersPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {orders.map((order) => (
+                  {orders.map((order: OrderWithIncludes) => (
                     <tr key={order.id} className="hover:bg-gray-50">
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">

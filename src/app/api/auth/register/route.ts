@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       })
     } else {
       // Create organization and user in a transaction
-      const result = await prisma.$transaction(async (tx) => {
+      const result = await prisma.$transaction(async (tx: any) => {
         // Generate unique invite code
         let newInviteCode: string
         let isUnique = false
